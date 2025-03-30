@@ -1,0 +1,51 @@
+name: Patch TikTok APK
+
+on: [push, pull_request]
+
+jobs:
+  patch-apk:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install -y default-jre apksigner zipalign
+      
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install openjdk zip
+          Invoke-WebRequest -Uri "https://dl.google.com/android/repository/build-tools_r33.0.1-windows.zip" -OutFile "build-tools.zip"
+          Expand-Archive -Path "build-tools.zip" -DestinationPath "build-tools"
+          echo "$PWD\build-tools" | Out-File -Append -FilePath $env:GITHUB_PATH
+      
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Download TikTok APK
+        run: |
+          curl -o tiktok.apk "https://github.com/Eltion/Tiktok-SSL-Pinning-Bypass/releases/download/v37.0.4/tiktok-v37.0.4.apk"
+        shell: bash
+      
+      - name: Patch APK
+        run: python patch_apk.py -i tiktok.apk -o patched_tiktok.apk
+      
+      - name: Upload patched APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: patched-tiktok-apk-${{ matrix.os }}
+          path: patched_tiktok.apk
